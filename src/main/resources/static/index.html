@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>ゲーム制作 タスク管理</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+        }
+
+        .task-card {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🎮 ゲーム制作 タスク管理ボード</h1>
+
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="taskTitle" placeholder="タスク名（例：BGM作成）">
+        <input type="number" id="taskHours" placeholder="工数（時間）" style="width: 100px;">
+        <button onclick="addTask()">タスクを追加</button>
+    </div>
+
+    <div id="taskList"></div>
+
+    <script>
+        // ① 画面が開いた時に、APIからタスク一覧を取得する
+        async function fetchTasks() {
+            const response = await fetch('/api/tasks'); // あなたが作ったGET APIを呼び出す！
+            const tasks = await response.json();
+
+            const listDiv = document.getElementById('taskList');
+            listDiv.innerHTML = ''; // 一旦中身を空にする
+
+            tasks.forEach(task => {
+                listDiv.innerHTML += `
+                    <div class="task-card">
+                        <strong>ID: ${task.id} | ${task.title}</strong>
+                        <span style="color: gray;"> (工数: ${task.estimatedHours}h / 状態: ${task.status})</span>
+                    </div>
+                `;
+            });
+        }
+
+        // ② ボタンを押した時に、APIへ新しいタスクを送信する
+        async function addTask() {
+            const titleInput = document.getElementById('taskTitle').value;
+            const hoursInput = document.getElementById('taskHours').value;
+
+            if (!titleInput) return alert("タスク名を入力してください");
+
+            const newTask = {
+                title: titleInput,
+                description: "",
+                assignee: "未定",
+                status: "TODO",
+                estimatedHours: hoursInput ? parseInt(hoursInput) : 0
+            };
+
+            await fetch('/api/tasks', { // あなたが作ったPOST APIを呼び出す！
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newTask)
+            });
+
+            // 送信が終わったら、入力欄を空にして一覧を再取得
+            document.getElementById('taskTitle').value = '';
+            document.getElementById('taskHours').value = '';
+            fetchTasks();
+        }
+
+        // 画面が読み込まれたら最初に実行する
+        fetchTasks();
+    </script>
+</body>
+
+</html>
