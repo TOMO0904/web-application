@@ -104,6 +104,7 @@
             div.innerHTML = `
                 <strong>${task.title}</strong>
                 <span style="color: gray; font-size: 0.9em;"> (ID:${task.id} / 工数: ${task.estimatedHours}h / 状態: ${task.status})</span>
+                <button onclick="deleteTask(${task.id})" style="margin-left: 10px; color: red;">削除</button>
             `;
 
             // もし子タスクを持っていたら、自分の中にさらに子タスクのカードを追加する
@@ -152,7 +153,21 @@
             document.getElementById('taskHours').value = '';
             fetchTasks();
         }
+        // ③ 【追加】削除ボタンを押した時に、APIへ削除依頼（DELETE）を送信する
+        async function deleteTask(id) {
+            // 間違えて押した時のために、確認メッセージを出す
+            if (!confirm("本当にこのタスクを削除しますか？")) {
+                return; // キャンセルされたら何もしない
+            }
 
+            // DELETEメソッドでAPIを呼び出す
+            await fetch('/api/tasks/' + id, {
+                method: 'DELETE'
+            });
+
+            // 削除が終わったら、一覧を再取得して画面を更新
+            fetchTasks();
+        }
         // 画面が読み込まれたら最初に実行する
         fetchTasks();
     </script>
