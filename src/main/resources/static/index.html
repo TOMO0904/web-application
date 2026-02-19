@@ -102,10 +102,17 @@
             div.style.marginLeft = `${depth * 20}px`;
 
             div.innerHTML = `
-                <strong>${task.title}</strong>
-                <span style="color: gray; font-size: 0.9em;"> (ID:${task.id} / 工数: ${task.estimatedHours}h / 状態: ${task.status})</span>
-                <button onclick="deleteTask(${task.id})" style="margin-left: 10px; color: red;">削除</button>
-            `;
+            <strong>${task.title}</strong>
+            <span style="color: gray; font-size: 0.9em;"> (ID:${task.id} / 工数: ${task.estimatedHours}h)</span>
+            
+            <select onchange="updateTaskStatus(${task.id}, this.value, '${task.title}', ${task.estimatedHours}, ${task.parentTaskId || null})" style="margin-left: 10px; padding: 2px;">
+                <option value="TODO" ${task.status === 'TODO' ? 'selected' : ''}>TODO</option>
+                <option value="IN_PROGRESS" ${task.status === 'IN_PROGRESS' ? 'selected' : ''}>進行中</option>
+                <option value="DONE" ${task.status === 'DONE' ? 'selected' : ''}>完了</option>
+            </select>
+
+            <button onclick="deleteTask(${task.id})" style="margin-left: 10px; color: red;">削除</button>
+        `;
 
             // もし子タスクを持っていたら、自分の中にさらに子タスクのカードを追加する
             if (task.children && task.children.length > 0) {
@@ -170,6 +177,27 @@
         }
         // 画面が読み込まれたら最初に実行する
         fetchTasks();
+        // ④ 【追加】プルダウンが変更された時に、APIへ更新依頼（PUT）を送信する
+        async function updateTaskStatus(id, newStatus, title, hours, parentId) {
+            const updatedTask = {
+                title: title,
+                description: "",
+                assignee: "未定",
+                status: newStatus,
+                estimatedHours: hours,
+                parentTaskId: parentId
+            };
+
+            // PUTメソッドで、変更先のIDを指定してAPIを呼び出す
+            await fetch('/api/tasks/' + id, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedTask)
+            });
+
+            // 見た目を確実にするため、変更が終わったら一覧を再取得（なくても動きますが念のため）
+            fetchTasks();
+        }
     </script>
 </body>
 
