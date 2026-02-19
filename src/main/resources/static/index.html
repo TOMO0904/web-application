@@ -3,28 +3,51 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>ゲーム制作 タスク管理</title>
+    <title>ゲーム制作 タスク管理ツリー</title>
     <style>
         body {
             font-family: sans-serif;
             margin: 20px;
+            background-color: #f9f9f9;
+        }
+
+        .controls {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
         }
 
         .task-card {
-            border: 1px solid #ccc;
+            background: #fff;
+            border: 1px solid #ddd;
             padding: 10px;
-            margin-bottom: 10px;
+            margin-top: 5px;
             border-radius: 5px;
+            border-left: 5px solid #4CAF50;
+            /* 親タスクの左側は緑色 */
+        }
+
+        .child-task {
+            border-left: 5px solid #2196F3;
+            /* 子タスクの左側は青色 */
+            margin-top: 5px;
         }
     </style>
 </head>
 
 <body>
-    <h1>🎮 ゲーム制作 タスク管理ボード</h1>
+    <h1>🎮 ゲーム制作 タスク管理ボード（ツリー構造）</h1>
 
-    <div style="margin-bottom: 20px;">
-        <input type="text" id="taskTitle" placeholder="タスク名（例：BGM作成）">
-        <input type="number" id="taskHours" placeholder="工数（時間）" style="width: 100px;">
+    <div class="controls">
+        <input type="text" id="taskTitle" placeholder="タスク名（例：UIデザイン）" style="width: 200px;">
+        <input type="number" id="taskHours" placeholder="工数" style="width: 70px;">
+
+        <select id="parentTaskSelect">
+            <option value="">(親タスクなし - 大項目)</option>
+        </select>
+
         <button onclick="addTask()">タスクを追加</button>
     </div>
 
@@ -33,19 +56,71 @@
     <script>
         // ① 画面が開いた時に、APIからタスク一覧を取得する
         async function fetchTasks() {
-            const response = await fetch('/api/tasks'); // あなたが作ったGET APIを呼び出す！
+            const response = await fetch('/api/tasks');
             const tasks = await response.json();
 
-            const listDiv = document.getElementById('taskList');
-            listDiv.innerHTML = ''; // 一旦中身を空にする
+            // --- ★ここからツリー構造を作る魔法のロジック ---
+            const taskMap = {};
+            const roots = []; // 親がいない一番上のタスクを入れる箱
 
+            // 1. 全タスクに「子タスクを入れる空の箱（children）」を用意する
             tasks.forEach(task => {
-                listDiv.innerHTML += `
-                    <div class="task-card">
-                        <strong>ID: ${task.id} | ${task.title}</strong>
-                        <span style="color: gray;"> (工数: ${task.estimatedHours}h / 状態: ${task.status})</span>
-                    </div>
-                `;
+                task.children = [];
+                taskMap[task.id] = task;
+            });
+
+            // 2. 親がいるタスクは、親の「children」箱の中に入れる
+            tasks.forEach(task => {
+                if (task.parentTaskId) {
+                    if (taskMap[task.parentTaskId]) {
+                        taskMap[task.parentTaskId].children.push(task);
+                    }
+                } else {
+                    roots.push(task); // 親がいないタスクはルート（一番上）
+                }
+            });
+            // ------------------------------------------------
+
+            // 画面の描画をリセット
+            const listDiv = document.getElementById('taskList');
+            listDiv.innerHTML = '';
+
+            // ツリーを描画する（再帰関数を使って子の子まで描画）
+            roots.forEach(rootTask => {
+                listDiv.appendChild(createTaskElement(rootTask, 0));
+            });
+
+            // プルダウンの選択肢を最新のタスク一覧で更新する
+            updateParentSelect(tasks);
+        }
+
+        // ★追加：タスクのカード（HTML）を作り出す関数
+        function createTaskElement(task, depth) {
+            const div = document.createElement('div');
+            div.className = depth === 0 ? 'task-card' : 'task-card child-task';
+            // 階層（depth）が深くなるごとに、左側に20pxずつ余白を開ける（インデント）
+            div.style.marginLeft = `${depth * 20}px`;
+
+            div.innerHTML = `
+                <strong>${task.title}</strong>
+                <span style="color: gray; font-size: 0.9em;"> (ID:${task.id} / 工数: ${task.estimatedHours}h / 状態: ${task.status})</span>
+            `;
+
+            // もし子タスクを持っていたら、自分の中にさらに子タスクのカードを追加する
+            if (task.children && task.children.length > 0) {
+                task.children.forEach(child => {
+                    div.appendChild(createTaskElement(child, depth + 1));
+                });
+            }
+            return div;
+        }
+
+        // ★追加：プルダウンメニューの選択肢を更新する関数
+        function updateParentSelect(tasks) {
+            const select = document.getElementById('parentTaskSelect');
+            select.innerHTML = '<option value="">(親タスクなし - 大項目)</option>';
+            tasks.forEach(task => {
+                select.innerHTML += `<option value="${task.id}">${task.title}</option>`;
             });
         }
 
@@ -53,6 +128,7 @@
         async function addTask() {
             const titleInput = document.getElementById('taskTitle').value;
             const hoursInput = document.getElementById('taskHours').value;
+            const parentIdInput = document.getElementById('parentTaskSelect').value;
 
             if (!titleInput) return alert("タスク名を入力してください");
 
@@ -61,10 +137,11 @@
                 description: "",
                 assignee: "未定",
                 status: "TODO",
-                estimatedHours: hoursInput ? parseInt(hoursInput) : 0
+                estimatedHours: hoursInput ? parseInt(hoursInput) : 0,
+                parentTaskId: parentIdInput ? parseInt(parentIdInput) : null // ★追加：親タスクのIDを一緒に送る
             };
 
-            await fetch('/api/tasks', { // あなたが作ったPOST APIを呼び出す！
+            await fetch('/api/tasks', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newTask)
