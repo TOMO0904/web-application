@@ -20,7 +20,7 @@ public class Task {
     private String assignee; // 担当者（サークルメンバー）
 
     @Column(nullable = false)
-    private String status; // 進捗（TODO, IN_PROGRESS, DONE）
+    private String status; // 進捗
 
     private Long parentTaskId; // ツリー構造用：親タスクのID
 
